@@ -36,7 +36,7 @@ Function[string] globalFilters()
 
 UniNode defaultVal(UniNode value, UniNode default_value = UniNode(""), bool boolean = false)
 {
-    if (value.kind == UniNode.Kind.nil)
+    if (value.tag == UniNode.Tag.nil)
         return default_value;
 
     if (!boolean)
@@ -83,16 +83,16 @@ UniNode sort(UniNode value)
 {
     import std.algorithm : sort;
 
-    switch (value.kind) with (UniNode.Kind)
+    switch (value.tag) with (UniNode.Tag)
     {
-        case array:
-            auto arr = value.get!(UniNode[]);
+        case sequence:
+            auto arr = value.getSequence;
             sort!((a, b) => a.getAsString < b.getAsString)(arr);
             return UniNode(arr);
 
-        case object:
+        case mapping:
             UniNode[] arr;
-            foreach (string key, val; value)
+            foreach (string key, UniNode val; value)
                 arr ~= UniNode([UniNode(key), val]);
             sort!"a[0].get!string < b[0].get!string"(arr);
             return UniNode(arr);
@@ -105,11 +105,11 @@ UniNode sort(UniNode value)
 
 UniNode keys(UniNode value)
 {
-    if (value.kind != UniNode.Kind.object)
+    if (value.tag != UniNode.Tag.mapping)
         return UniNode(null);
 
     UniNode[] arr;
-    foreach (string key, val; value)
+    foreach (string key, UniNode val; value)
         arr ~= UniNode(key);
     return UniNode(arr);
 }

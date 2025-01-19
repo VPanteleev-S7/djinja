@@ -43,7 +43,7 @@ template wrapper(alias F)
     {
         UniNode func (UniNode params)
         {
-            assertJinja(params.kind == UniNode.Kind.object, "Non object params");
+            assertJinja(params.tag == UniNode.Tag.mapping, "Non object params");
             assertJinja(cast(bool)("varargs" in params), "Missing varargs in params");
             assertJinja(cast(bool)("kwargs" in params), "Missing kwargs in params");
 
@@ -54,9 +54,9 @@ template wrapper(alias F)
             {
                 alias key = ParameterIdents[i];
                 static if (key == "varargs")
-                    args[i] = UniNode.emptyArray;
+                    args[i] = UniNode.emptySequence;
                 else static if (key == "kwargs")
-                    args[i] = UniNode.emptyObject;
+                    args[i] = UniNode.emptyMapping;
                 else static if (!is(def == void))
                     args[i] = def;
                 else
@@ -70,11 +70,11 @@ template wrapper(alias F)
                     args[idx] = val.deserialize!PType;
                 catch
                     assertJinja(0, "Can't deserialize param `%s` from `%s` to `%s` in function `%s`"
-                                            .fmt(key, val.kind, PType.stringof, fullyQualifiedName!F));
+                                            .fmt(key, val.tag, PType.stringof, fullyQualifiedName!F));
             }
 
-            UniNode varargs = UniNode.emptyArray;
-            UniNode kwargs = UniNode.emptyObject;
+            UniNode varargs = UniNode.emptySequence;
+            UniNode kwargs = UniNode.emptyMapping;
 
             bool isVarargs = false;
             int varargsFilled = 0;

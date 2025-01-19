@@ -34,13 +34,13 @@ Function[string] globalTests()
 
 bool defined(UniNode value)
 {
-    return value.kind != UniNode.Kind.nil;
+    return value.tag != UniNode.Tag.nil;
 }
 
 
 bool undefined(UniNode value)
 {
-    return value.kind == UniNode.Kind.nil;
+    return value.tag == UniNode.Tag.nil;
 }
 
 
@@ -52,11 +52,11 @@ bool number(UniNode value)
 
 bool list(UniNode value)
 {
-    return value.kind == UniNode.Kind.array;
+    return value.tag == UniNode.Tag.sequence;
 }
 
 
 bool dict(UniNode value)
 {
-    return value.kind == UniNode.Kind.object;
+    return value.tag == UniNode.Tag.mapping;
 }

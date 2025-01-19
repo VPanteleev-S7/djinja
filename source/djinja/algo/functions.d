@@ -41,7 +41,7 @@ UniNode range(UniNode params)
     import std.array : array;
     import std.algorithm : map;
 
-    assertJinja(params.kind == UniNode.Kind.object, "Non object params");
+    assertJinja(params.tag == UniNode.Tag.mapping, "Non mapping params");
     assertJinja(cast(bool)("varargs" in params), "Missing varargs in params");
 
     if (params["varargs"].length > 0)
@@ -58,15 +58,15 @@ UniNode range(UniNode params)
 
 long length(UniNode value)
 {
-    switch (value.kind) with (UniNode.Kind)
+    switch (value.tag) with (UniNode.Tag)
     {
-        case array:
-        case object:
+        case sequence:
+        case mapping:
             return value.length;
         case text:
             return value.get!string.length;
         default:
-            assertJinja(0, "Object of type `%s` has no length()".fmt(value.kind));
+            assertJinja(0, "Object of type `%s` has no length()".fmt(value.tag));
     }
     assert(0);
 }

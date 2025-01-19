@@ -85,7 +85,7 @@ string render(T...)(TemplateNode tree)
 
     auto render = new Render(tree);
 
-    auto data = UniNode.emptyObject();
+    auto data = UniNode.emptyMapping();
     
     foreach (i, arg; Args)
     {

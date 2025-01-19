@@ -14,7 +14,7 @@ module djinja.uninode;
 
 public
 {
-    import uninode.core;
+    import uninode.node;
     import uninode.serialization :
                 serialize = serializeToUniNode,
                 deserialize = deserializeUniNode;
@@ -36,55 +36,55 @@ private
 
 bool isNumericNode(ref UniNode n)
 {
-    return cast(bool)n.kind.among!(
-            UniNode.Kind.integer,
-            UniNode.Kind.uinteger,
-            UniNode.Kind.floating
+    return cast(bool)n.tag.among!(
+            UniNode.Tag.integer,
+            UniNode.Tag.uinteger,
+            UniNode.Tag.floating
         );
 }
 
 
 bool isIntNode(ref UniNode n)
 {
-    return cast(bool)n.kind.among!(
-            UniNode.Kind.integer,
-            UniNode.Kind.uinteger
+    return cast(bool)n.tag.among!(
+            UniNode.Tag.integer,
+            UniNode.Tag.uinteger
         );
 }
 
 
 bool isFloatNode(ref UniNode n)
 {
-    return n.kind == UniNode.Kind.floating;
+    return n.tag == UniNode.Tag.floating;
 }
 
 
 bool isIterableNode(ref UniNode n)
 {
-    return cast(bool)n.kind.among!(
-            UniNode.Kind.array,
-            UniNode.Kind.object,
-            UniNode.Kind.text
+    return cast(bool)n.tag.among!(
+            UniNode.Tag.sequence,
+            UniNode.Tag.mapping,
+            UniNode.Tag.text
         );
 }
 
 void toIterableNode(ref UniNode n)
 {
-    switch (n.kind) with (UniNode.Kind)
+    switch (n.tag) with (UniNode.Tag)
     {
-        case array:
+        case sequence:
             return;
         case text:
             n = UniNode(n.get!string.map!(a => UniNode(cast(string)[a])).array);
             return;
-        case object:
+        case mapping:
             UniNode[] arr;
-            foreach (key, val; n.get!(UniNode[string]))
+            foreach (key, val; n.getMapping)
                 arr ~= UniNode([UniNode(key), val]);
             n = UniNode(arr);
             return;
         default:
-            throw new JinjaRenderException("Can't implicity convert type %s to iterable".fmt(n.kind));
+            throw new JinjaRenderException("Can't implicity convert type %s to iterable".fmt(n.tag));
     }
 }
 
@@ -114,14 +114,14 @@ void toCommonCmpType(ref UniNode n1, ref UniNode n2)
        toCommonNumType(n1, n2);
        return;
    }
-   if (n1.kind != n2.kind)
-       throw new JinjaRenderException("Not comparable types %s and %s".fmt(n1.kind, n2.kind));
+   if (n1.tag != n2.tag)
+       throw new JinjaRenderException("Not comparable types %s and %s".fmt(n1.tag, n2.tag));
 }
 
 
 void toBoolType(ref UniNode n)
 {
-    switch (n.kind) with (UniNode.Kind)
+    switch (n.tag) with (UniNode.Tag)
     {
         case boolean:
             return;
@@ -135,15 +135,15 @@ void toBoolType(ref UniNode n)
         case text:
             n = UniNode(n.get!string.length > 0);
             return;
-        case array:
-        case object:
+        case sequence:
+        case mapping:
             n = UniNode(n.length > 0);
             return;
         case nil:
             n = UniNode(false);
             return;
         default:
-            throw new JinjaRenderException("Can't cast type %s to bool".fmt(n.kind));
+            throw new JinjaRenderException("Can't cast type %s to bool".fmt(n.tag));
     }
 }
 
@@ -155,7 +155,7 @@ void toStringType(ref UniNode n)
 
     string getString(UniNode n)
     {
-        bool quotes = n.kind == UniNode.Kind.text;
+        bool quotes = n.tag == UniNode.Tag.text;
         n.toStringType;
         if (quotes)
             return "'" ~ n.get!string ~ "'";
@@ -165,7 +165,7 @@ void toStringType(ref UniNode n)
 
     string doSwitch()
     {
-        final switch (n.kind) with (UniNode.Kind)
+        final switch (n.tag) with (UniNode.Tag)
         {
             case nil:      return "";
             case boolean:  return n.get!bool.to!string;
@@ -174,11 +174,11 @@ void toStringType(ref UniNode n)
             case floating: return n.get!double.to!string;
             case text:     return n.get!string;
             case raw:      return n.get!(ubyte[]).to!string;
-            case array:    return "["~n.get!(UniNode[]).map!(a => getString(a)).join(", ").to!string~"]";
-            case object:
+            case sequence:    return "["~n.getSequence.map!(a => getString(a)).join(", ").to!string~"]";
+            case mapping:
                 string[] results;
                 Tuple!(string, UniNode)[] sorted = [];
-                foreach (string key, ref value; n)
+                foreach (string key, ref UniNode value; n)
                     results ~= key ~ ": " ~ getString(value);
                 return "{" ~ results.join(", ").to!string ~ "}";
         }
@@ -195,10 +195,10 @@ string getAsString(UniNode n)
 }
 
 
-void checkNodeType(ref UniNode n, UniNode.Kind kind, Position pos)
+void checkNodeType(ref UniNode n, UniNode.Tag kind, Position pos)
 {
-    if (n.kind != kind)
-        assertJinja(0, "Unexpected expression type `%s`, expected `%s`".fmt(n.kind, kind), pos);
+    if (n.tag != kind)
+        assertJinja(0, "Unexpected expression type `%s`, expected `%s`".fmt(n.tag, kind), pos);
 }
 
 
@@ -208,7 +208,7 @@ UniNode unary(string op)(UniNode lhs)
                  Operator.Minus)
     )
 {
-    assertJinja(lhs.isNumericNode, "Expected int got %s".fmt(lhs.kind));
+    assertJinja(lhs.isNumericNode, "Expected int got %s".fmt(lhs.tag));
 
     if (lhs.isIntNode)
         return UniNode(mixin(op ~ "lhs.get!long"));
@@ -245,8 +245,8 @@ UniNode binary(string op)(UniNode lhs, UniNode rhs)
 UniNode binary(string op)(UniNode lhs, UniNode rhs)
     if (op == Operator.DivInt)
 {
-    assertJinja(lhs.isIntNode, "Expected int got %s".fmt(lhs.kind));
-    assertJinja(rhs.isIntNode, "Expected int got %s".fmt(rhs.kind));
+    assertJinja(lhs.isIntNode, "Expected int got %s".fmt(lhs.tag));
+    assertJinja(rhs.isIntNode, "Expected int got %s".fmt(rhs.tag));
     return UniNode(lhs.get!long / rhs.get!long);
 }
 
@@ -301,7 +301,7 @@ UniNode binary(string op)(UniNode lhs, UniNode rhs)
        )
 {
     toCommonCmpType(lhs, rhs);
-    switch (lhs.kind) with (UniNode.Kind)
+    switch (lhs.tag) with (UniNode.Tag)
     {
         case integer:
         case uinteger:
@@ -311,7 +311,7 @@ UniNode binary(string op)(UniNode lhs, UniNode rhs)
         case text:
             return UniNode(mixin("lhs.get!string" ~ op ~ "rhs.get!string"));
         default:
-            throw new JinjaRenderException("Not comparable type %s".fmt(lhs.kind));
+            throw new JinjaRenderException("Not comparable type %s".fmt(lhs.tag));
     }
 }
 
@@ -352,21 +352,21 @@ UniNode binary(string op)(UniNode lhs, UniNode rhs)
 {
     import std.algorithm.searching : countUntil;
 
-    switch (rhs.kind) with (UniNode.Kind)
+    switch (rhs.tag) with (UniNode.Tag)
     {
-        case array:
-            foreach(val; rhs)
+        case sequence:
+            foreach(UniNode val; rhs)
             {
                 if (val == lhs)
                     return UniNode(true);
             }
             return UniNode(false);
-        case object:
-            if (lhs.kind != UniNode.Kind.text)
+        case mapping:
+            if (lhs.tag != UniNode.Tag.text)
                 return UniNode(false);
             return UniNode(cast(bool)(lhs.get!string in rhs));
         case text:
-            if (lhs.kind != UniNode.Kind.text)
+            if (lhs.tag != UniNode.Tag.text)
                 return UniNode(false);
             return UniNode(rhs.get!string.countUntil(lhs.get!string) >= 0);
         default:

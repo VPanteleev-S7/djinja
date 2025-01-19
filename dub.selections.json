@@ -1,9 +1,8 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"d-unit": "0.8.2",
-		"stdx-allocator": "2.77.4",
-		"uninode": "0.0.1",
-		"vibe-d": "0.8.4"
+		"bolts": "1.7.0",
+		"silly": "1.0.2",
+		"uninode": "0.3.1"
 	}
 }

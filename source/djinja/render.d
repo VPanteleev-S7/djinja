@@ -77,7 +77,7 @@ class Context
     this ()
     {
         prev = null;
-        data = UniNode.emptyObject();
+        data = UniNode.emptyMapping();
     }
 
     this (Context ctx, UniNode data)
@@ -113,8 +113,8 @@ class Context
 
     UniNode* getPtr(string name)
     {
-        if (name in data)
-            return &(data[name]);
+        if (auto p = name in data)
+            return p;
         if (prev is null)
             assertJinja(0, "Non declared var `%s`".fmt(name));
         return prev.getPtr(name);
@@ -328,7 +328,7 @@ class Render : IVisitor
             tryAccept(node.rhs);
             auto args = pop();
             auto name = args["name"].get!string;
-            args["varargs"] = UniNode([lhs] ~ args["varargs"].get!(UniNode[]));
+            args["varargs"] = UniNode([lhs] ~ args["varargs"].getSequence);
             
             if (_context.hasFunc(name))
                 return visitFunc(name, args);
@@ -436,12 +436,12 @@ class Render : IVisitor
             tryAccept(sub);
             auto key = pop();
 
-            switch (key.kind) with (UniNode.Kind)
+            switch (key.tag) with (UniNode.Tag)
             {
                 // Index of list/tuple
                 case integer:
                 case uinteger:
-                    curr.checkNodeType(array, lastPos);
+                    curr.checkNodeType(sequence, lastPos);
                     if (key.get!long < curr.length)
                         curr = curr[key.get!long];
                     else
@@ -451,14 +451,14 @@ class Render : IVisitor
                 // Key of dict
                 case text:
                     auto keyStr = key.get!string;
-                    if (curr.kind == UniNode.Kind.object && keyStr in curr)
+                    if (curr.tag == UniNode.Tag.mapping && keyStr in curr)
                         curr = curr[keyStr];
                     else if (_context.hasFunc(keyStr))
                     {
                         auto args = [
                             "name": UniNode(keyStr),
                             "varargs": UniNode([curr]),
-                            "kwargs": UniNode.emptyObject
+                            "kwargs": UniNode.emptyMapping
                         ];
                         curr = visitFunc(keyStr, UniNode(args));
                     }
@@ -467,23 +467,23 @@ class Render : IVisitor
                         auto args = [
                             "name": UniNode(keyStr),
                             "varargs": UniNode([curr]),
-                            "kwargs": UniNode.emptyObject
+                            "kwargs": UniNode.emptyMapping
                         ];
                         curr = visitMacro(keyStr, UniNode(args));
                     }
                     else
                     {
-                        curr.checkNodeType(object, lastPos);
+                        curr.checkNodeType(mapping, lastPos);
                         assertJinja(0, "Unknown attribute %s".fmt(key.get!string), sub.pos);
                     }
                     break;
 
                 // Call of function
-                case object:
+                case mapping:
                     auto name = key["name"].get!string;
 
-                    if (!curr.isNull)
-                        key["varargs"] = UniNode([curr] ~ key["varargs"].get!(UniNode[]));
+                    if (curr.tag != UniNode.Tag.nil)
+                        key["varargs"] = UniNode([curr] ~ key["varargs"].getSequence);
 
                     if (_context.hasFunc(name))
                     {
@@ -534,23 +534,23 @@ class Render : IVisitor
             tryAccept(node.subIdents[i]);
             auto key = pop();
 
-            switch (key.kind) with (UniNode.Kind)
+            switch (key.tag) with (UniNode.Tag)
             {
                 // Index of list/tuple
                 case integer:
                 case uinteger:
-                    checkNodeType(*curr, array, lastPos);
+                    checkNodeType(*curr, sequence, lastPos);
                     if (key.get!long < curr.length)
-                        curr = &((*curr)[key.get!long]);
+                        curr = &((*curr).getSequence[key.get!long]);
                     else
                         assertJinja(0, "Range violation  on %s...[%d]".fmt(node.name, key.get!long), node.subIdents[i].pos);
                     break;
 
                 // Key of dict
                 case text:
-                    checkNodeType(*curr, object, lastPos);
+                    checkNodeType(*curr, mapping, lastPos);
                     if (key.get!string in *curr)
-                        curr = &((*curr)[key.get!string]);
+                        curr = &((*curr).getMapping[key.get!string]);
                     else
                         assertJinja(0, "Unknown attribute %s".fmt(key.get!string), node.subIdents[i].pos);
                     break;
@@ -566,21 +566,21 @@ class Render : IVisitor
             tryAccept(node.subIdents[$-1]);
             auto key = pop();
 
-            switch (key.kind) with (UniNode.Kind)
+            switch (key.tag) with (UniNode.Tag)
             {
                 // Index of list/tuple
                 case integer:
                 case uinteger:
-                    checkNodeType(*curr, array, lastPos);
+                    checkNodeType(*curr, sequence, lastPos);
                     if (key.get!long < curr.length)
-                        (*curr).opIndex(key.get!long) = expr; // ¯\_(ツ)_/¯
+                        (*curr).getSequence[key.get!long] = expr; // ¯\_(ツ)_/¯
                     else
                         assertJinja(0, "Range violation  on %s...[%d]".fmt(node.name, key.get!long), node.subIdents[$-1].pos);
                     break;
 
                 // Key of dict
                 case text:
-                    checkNodeType(*curr, object, lastPos);
+                    checkNodeType(*curr, mapping, lastPos);
                     (*curr)[key.get!string] = expr;
                     break;
 
@@ -678,14 +678,14 @@ class Render : IVisitor
 
             if (!node.cond.isNull)
             {
-                auto newIterable = UniNode.emptyArray;
+                auto newIterable = UniNode.emptySequence;
                 for (int i = 0; i < iterable.length; i++)
                 {
                     if (node.keys.length == 1)
                         _context.data[node.keys[0]] = iterable[i];
                     else
                     {
-                        iterable[i].checkNodeType(UniNode.Kind.array, node.iterable.pos);
+                        iterable.getSequence[i].checkNodeType(UniNode.Tag.sequence, node.iterable.pos);
                         assertJinja(iterable[i].length >= node.keys.length, "Num of keys less then values", node.iterable.pos);
                         foreach(j, key; node.keys)
                             _context.data[key] = iterable[i][j];
@@ -697,23 +697,23 @@ class Render : IVisitor
                 iterable = newIterable;
             }
 
-            _context.data["loop"] = UniNode.emptyObject;
-            _context.data["loop"]["length"] = UniNode(iterable.length);
-            _context.data["loop"]["depth"] = UniNode(depth);
-            _context.data["loop"]["depth0"] = UniNode(depth - 1);
+            _context.data["loop"] = UniNode.emptyMapping;
+            _context.data.getMapping["loop"]["length"] = UniNode(iterable.length);
+            _context.data.getMapping["loop"]["depth"] = UniNode(depth);
+            _context.data.getMapping["loop"]["depth0"] = UniNode(depth - 1);
             _context.functions["cycle"] = wrapper!cycle;
             _context.functions["changed"] = wrapper!changed;
 
             for (int i = 0; i < iterable.length; i++)
             {
-                _context.data["loop"]["index"] = UniNode(i + 1);
-                _context.data["loop"]["index0"] = UniNode(i);
-                _context.data["loop"]["revindex"] = UniNode(iterable.length - i);
-                _context.data["loop"]["revindex0"] = UniNode(iterable.length - i - 1);
-                _context.data["loop"]["first"] = UniNode(i == 0);
-                _context.data["loop"]["last"] = UniNode(i == iterable.length - 1);
-                _context.data["loop"]["previtem"] = i > 0 ? iterable[i - 1] : UniNode(null);
-                _context.data["loop"]["nextitem"] = i < iterable.length - 1 ? iterable[i + 1] : UniNode(null);
+                _context.data.getMapping["loop"]["index"] = UniNode(i + 1);
+                _context.data.getMapping["loop"]["index0"] = UniNode(i);
+                _context.data.getMapping["loop"]["revindex"] = UniNode(iterable.length - i);
+                _context.data.getMapping["loop"]["revindex0"] = UniNode(iterable.length - i - 1);
+                _context.data.getMapping["loop"]["first"] = UniNode(i == 0);
+                _context.data.getMapping["loop"]["last"] = UniNode(i == iterable.length - 1);
+                _context.data.getMapping["loop"]["previtem"] = i > 0 ? iterable[i - 1] : UniNode(null);
+                _context.data.getMapping["loop"]["nextitem"] = i < iterable.length - 1 ? iterable[i + 1] : UniNode(null);
 
                 if (node.isRecursive)
                     _context.functions["loop"] = wrapper!loop;
@@ -722,7 +722,7 @@ class Render : IVisitor
                     _context.data[node.keys[0]] = iterable[i];
                 else
                 {
-                    iterable[i].checkNodeType(UniNode.Kind.array, node.iterable.pos);
+                    iterable.getSequence[i].checkNodeType(UniNode.Tag.sequence, node.iterable.pos);
                     assertJinja(iterable[i].length >= node.keys.length, "Num of keys less then values", node.iterable.pos);
                     foreach(j, key; node.keys)
                         _context.data[key] = iterable[i][j];
@@ -755,7 +755,7 @@ class Render : IVisitor
         else
         {
             auto expr = pop();
-            expr.checkNodeType(UniNode.Kind.array, node.expr.pos);
+            expr.checkNodeType(UniNode.Tag.sequence, node.expr.pos);
             
             if (expr.length < node.assigns.length)
                 assertJinja(0, "Iterable length less then number of assigns", node.expr.pos);
@@ -916,7 +916,7 @@ private:
 
         foreach(arg; macro_.args)
             if (!arg.def.isNull)
-                _context.data[arg.name] = arg.def;
+                _context.data[arg.name] = arg.def.get();
 
         for(int i = 0; i < args["varargs"].length; i++)
         {
@@ -926,7 +926,7 @@ private:
                 varargs ~= args["varargs"][i];
         }
 
-        foreach (string key, value; args["kwargs"])
+        foreach (string key, UniNode value; args["kwargs"])
         {
             if (macro_.args.has(key))
                 _context.data[key] = value;
@@ -968,7 +968,7 @@ private:
             foreach_reverse (filter; _appliedFilters)
             {
                 auto args = filter.args;
-                args["varargs"] = UniNode([curr] ~ args["varargs"].get!(UniNode[]));
+                args["varargs"] = UniNode([curr] ~ args["varargs"].getSequence);
 
                 if (_context.hasFunc(filter.name))
                     curr = visitFunc(filter.name, args);
@@ -990,7 +990,7 @@ private:
 
     void pushNewContext()
     {
-        _context = new Context(_context, UniNode.emptyObject);
+        _context = new Context(_context, UniNode.emptyMapping);
     }
 
 

@@ -68,7 +68,7 @@ template wrapper(alias F)
                 // TODO toBoolType, toStringType
                 try
                     args[idx] = val.deserialize!PType;
-                catch
+                catch (Exception e)
                     assertJinja(0, "Can't deserialize param `%s` from `%s` to `%s` in function `%s`"
                                             .fmt(key, val.tag, PType.stringof, fullyQualifiedName!F));
             }

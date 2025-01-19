@@ -52,7 +52,7 @@ template wrapper(alias F)
 
             foreach(i, def; ParameterDefs)
             {
-                alias key = ParameterIdents[i];
+                enum key = ParameterIdents[i];
                 static if (key == "varargs")
                     args[i] = UniNode.emptySequence;
                 else static if (key == "kwargs")

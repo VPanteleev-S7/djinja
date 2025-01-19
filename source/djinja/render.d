@@ -222,14 +222,14 @@ class Render : IVisitor
 
     override void visit(TemplateNode node)
     {
-        tryAccept(node.stmt);
+        tryAccept(node.stmt.get());
     }
 
     override void visit(BlockNode node)
     {
         void super_()
         {
-            tryAccept(node.stmt);
+            tryAccept(node.stmt.get());
         }
 
         foreach (tmpl; _extends[0 .. $-1])
@@ -237,7 +237,7 @@ class Render : IVisitor
             {
                 pushNewContext();
                 _context.functions["super"] = wrapper!super_;
-                tryAccept(tmpl.blocks[node.name].stmt);
+                tryAccept(tmpl.blocks[node.name].stmt.get());
                 popContext();
                 return;
             }
@@ -261,7 +261,7 @@ class Render : IVisitor
 
     override void visit(ExprNode node)
     {
-        tryAccept(node.expr);
+        tryAccept(node.expr.get());
         auto n = pop();
         n.toStringType;
         writeToResult(n.get!string);
@@ -273,7 +273,7 @@ class Render : IVisitor
 
         if (!node.cond.isNull)
         {
-            tryAccept(node.cond);
+            tryAccept(node.cond.get());
             auto res = pop();
             res.toBoolType;
             condition = res.get!bool;
@@ -281,11 +281,11 @@ class Render : IVisitor
 
         if (condition)
         {
-            tryAccept(node.expr);
+            tryAccept(node.expr.get());
         }
         else if (!node.other.isNull)
         {
-            tryAccept(node.other);
+            tryAccept(node.other.get());
         }
         else
         {
@@ -644,7 +644,7 @@ class Render : IVisitor
             bool condition = true;
             if (!node.cond.isNull)
             {
-                tryAccept(node.cond);
+                tryAccept(node.cond.get());
                 auto cond = pop();
                 cond.toBoolType;
                 condition = cond.get!bool;
@@ -685,8 +685,8 @@ class Render : IVisitor
                         _context.data[node.keys[0]] = iterable[i];
                     else
                     {
-                        iterable.getSequence[i].checkNodeType(UniNode.Tag.sequence, node.iterable.pos);
-                        assertJinja(iterable[i].length >= node.keys.length, "Num of keys less then values", node.iterable.pos);
+                        iterable.getSequence[i].checkNodeType(UniNode.Tag.sequence, node.iterable.get().pos);
+                        assertJinja(iterable[i].length >= node.keys.length, "Num of keys less then values", node.iterable.get().pos);
                         foreach(j, key; node.keys)
                             _context.data[key] = iterable[i][j];
                     }
@@ -722,13 +722,13 @@ class Render : IVisitor
                     _context.data[node.keys[0]] = iterable[i];
                 else
                 {
-                    iterable.getSequence[i].checkNodeType(UniNode.Tag.sequence, node.iterable.pos);
-                    assertJinja(iterable[i].length >= node.keys.length, "Num of keys less then values", node.iterable.pos);
+                    iterable.getSequence[i].checkNodeType(UniNode.Tag.sequence, node.iterable.get().pos);
+                    assertJinja(iterable[i].length >= node.keys.length, "Num of keys less then values", node.iterable.get().pos);
                     foreach(j, key; node.keys)
                         _context.data[key] = iterable[i][j];
                 }
 
-                tryAccept(node.block);
+                tryAccept(node.block.get());
                 iterated = true;
             }
             popContext();
@@ -737,12 +737,12 @@ class Render : IVisitor
 
 
 
-        tryAccept(node.iterable);
+        tryAccept(node.iterable.get());
         UniNode iterable = pop();
         loop(iterable);
 
         if (!iterated && !node.other.isNull)
-            tryAccept(node.other);
+            tryAccept(node.other.get());
     }
 
 
@@ -779,12 +779,12 @@ class Render : IVisitor
                 args ~= FormArg(arg.name);
             else
             {
-                tryAccept(arg.defaultExpr);
+                tryAccept(arg.defaultExpr.get());
                 args ~= FormArg(arg.name, pop());
             }
         }
 
-        _context.macros[node.name] = Macro(args, _context, node.block);
+        _context.macros[node.name] = Macro(args, _context, node.block.get());
     }
 
 
@@ -798,14 +798,14 @@ class Render : IVisitor
                 args ~= FormArg(arg.name);
             else
             {
-                tryAccept(arg.defaultExpr);
+                tryAccept(arg.defaultExpr.get());
                 args ~= FormArg(arg.name, pop());
             }
         }
 
-        auto caller = Macro(args, _context, node.block);
+        auto caller = Macro(args, _context, node.block.get());
 
-        tryAccept(node.factArgs);
+        tryAccept(node.factArgs.get());
         auto factArgs = pop();
 
         visitMacro(node.macroName, factArgs, caller.nullable);
@@ -814,11 +814,11 @@ class Render : IVisitor
 
     override void visit(FilterBlockNode node)
     {
-        tryAccept(node.args);
+        tryAccept(node.args.get());
         auto args = pop();
 
         pushFilter(node.filterName, args);
-        tryAccept(node.block);
+        tryAccept(node.block.get());
         popFilter();
     }
 
@@ -838,7 +838,7 @@ class Render : IVisitor
 
         pushNewContext();
 
-        foreach (child; node.tmplBlock.stmt.children)
+        foreach (child; node.tmplBlock.get().stmt.get().children)
             tryAccept(child);
 
         auto macros = _context.macros;
@@ -872,7 +872,7 @@ class Render : IVisitor
         if (!node.withContext)
             _context = _globalContext;
 
-        tryAccept(node.tmplBlock);
+        tryAccept(node.tmplBlock.get());
 
         if (!node.withContext)
             _context = stashedContext;
@@ -881,8 +881,8 @@ class Render : IVisitor
 
     override void visit(ExtendsNode node)
     {
-        _extends ~= node.tmplBlock;
-        tryAccept(node.tmplBlock);
+        _extends ~= node.tmplBlock.get();
+        tryAccept(node.tmplBlock.get());
         _extends.popBack;
         _isExtended = true;
     }
@@ -942,9 +942,9 @@ private:
                 assertJinja(0, "Missing value for argument `%s` in macro `%s`".fmt(arg.name, name));
 
         if (!caller.isNull)
-            _context.macros["caller"] = caller;
+            _context.macros["caller"] = caller.get();
 
-        tryAccept(macro_.block);
+        tryAccept(macro_.block.get());
         result = pop();
 
         popContext();

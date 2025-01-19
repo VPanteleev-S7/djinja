@@ -71,7 +71,7 @@ class Printer : NullVisitor
         print("Statements:");
         _tab++;
         if (!node.stmt.isNull)
-            node.stmt.accept(this);
+            node.stmt.get().accept(this);
         _tab--;
 
         _tab--;
@@ -83,7 +83,7 @@ class Printer : NullVisitor
         print("Block: %s".fmt(node.name));
         _tab++;
         if (!node.stmt.isNull)
-            node.stmt.accept(this);
+            node.stmt.get().accept(this);
         _tab--;
     }
 
@@ -99,7 +99,7 @@ class Printer : NullVisitor
     {
         print("Expression block:");
         _tab++;
-        node.expr.accept(this);
+        node.expr.get().accept(this);
         _tab--;
     }
 
@@ -116,13 +116,13 @@ class Printer : NullVisitor
         {
             print("If:");
             _tab++;
-            node.cond.accept(this);
+            node.cond.get().accept(this);
             _tab--;
         }
         
         print("Expression:");
         _tab++;
-        node.expr.accept(this);
+        node.expr.get().accept(this);
         _tab--;
 
         if (node.other.isNull)
@@ -131,7 +131,7 @@ class Printer : NullVisitor
         {
             print("Else:");
             _tab++;
-            node.other.accept(this);
+            node.other.get().accept(this);
             _tab--;
         }
 
@@ -282,19 +282,19 @@ class Printer : NullVisitor
 
         print("Iterable:");
         _tab++;
-        node.iterable.accept(this);
+        node.iterable.get().accept(this);
         _tab--;
 
         print("Block:");
         _tab++;
-        node.block.accept(this);
+        node.block.get().accept(this);
         _tab--;
 
         if (!node.cond.isNull)
         {
             print("Condition:");
             _tab++;
-            node.cond.accept(this);
+            node.cond.get().accept(this);
             _tab--;
         }
         else
@@ -305,7 +305,7 @@ class Printer : NullVisitor
         {
             print("Else:");
             _tab++;
-            node.other.accept(this);
+            node.other.get().accept(this);
             _tab--;
         }
         else
@@ -356,7 +356,7 @@ class Printer : NullVisitor
                     _tab++;
                     print("Default:");
                     _tab++;
-                    arg.defaultExpr.accept(this);
+                    arg.defaultExpr.get().accept(this);
                     _tab--;
                     _tab--;
                 }
@@ -366,7 +366,7 @@ class Printer : NullVisitor
 
         print("Body:");
         _tab++;
-        node.block.accept(this);
+        node.block.get().accept(this);
         _tab--;
 
         _tab--;
@@ -395,7 +395,7 @@ class Printer : NullVisitor
                     _tab++;
                     print("Default:");
                     _tab++;
-                    arg.defaultExpr.accept(this);
+                    arg.defaultExpr.get().accept(this);
                     _tab--;
                     _tab--;
                 }
@@ -409,13 +409,13 @@ class Printer : NullVisitor
         {
             print("Fact args:");
             _tab++;
-            node.factArgs.accept(this);
+            node.factArgs.get().accept(this);
             _tab--;
         }
 
         print("Body:");
         _tab++;
-        node.block.accept(this);
+        node.block.get().accept(this);
         _tab--;
 
         _tab--;
@@ -434,13 +434,13 @@ class Printer : NullVisitor
         {
             print("Args:");
             _tab++;
-            node.args.accept(this);
+            node.args.get().accept(this);
             _tab--;
         }
 
         print("Body:");
         _tab++;
-        node.block.accept(this);
+        node.block.get().accept(this);
         _tab--;
 
         _tab--;
@@ -467,7 +467,7 @@ class Printer : NullVisitor
         if (node.tmplBlock.isNull)
             print("Block: Missing");
         else
-            print("Block: %s children".fmt(node.tmplBlock.stmt.children.length));
+            print("Block: %s children".fmt(node.tmplBlock.get().stmt.get().children.length));
 
         if (node.withContext)
             print("Context: with");
@@ -487,7 +487,7 @@ class Printer : NullVisitor
         if (node.tmplBlock.isNull)
             print("Block: Missing");
         else
-            print("Block: %s children".fmt(node.tmplBlock.stmt.children.length));
+            print("Block: %s children".fmt(node.tmplBlock.get().stmt.get().children.length));
 
         if (node.withContext)
             print("Context: with");
@@ -507,7 +507,7 @@ class Printer : NullVisitor
         if (node.tmplBlock.isNull)
             print("Block: Missing");
         else
-            print("Block: %s children".fmt(node.tmplBlock.stmt.children.length));
+            print("Block: %s children".fmt(node.tmplBlock.get().stmt.get().children.length));
 
         _tab--;
     }

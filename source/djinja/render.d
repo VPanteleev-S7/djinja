@@ -549,8 +549,8 @@ class Render : IVisitor
                 // Key of dict
                 case text:
                     checkNodeType(*curr, mapping, lastPos);
-                    if (key.get!string in *curr)
-                        curr = &((*curr).getMapping[key.get!string]);
+                    if (auto p = key.get!string in *curr)
+                        curr = p;
                     else
                         assertJinja(0, "Unknown attribute %s".fmt(key.get!string), node.subIdents[i].pos);
                     break;
